@@ -55,11 +55,36 @@ async function getCallQueue() {
   return await sendRequestAndWait(request);
 }
 
+async function subCall() {
+  const request = {
+    action: "subscribe",
+    correlationId: "c455bd8e-c04e-4f53-89e6-41352da5fb2d",
+    registerToken: registerToken,
+  };
+
+  // Send the request
+  websocket.send(JSON.stringify(request));
+
+  // Listen for messages from the server
+  websocket.addEventListener("message", (event) => {
+    const response = JSON.parse(event.data);
+    console.log(response)
+  });
+
+  // Handle errors
+  websocket.addEventListener("error", (event) => {
+    console.log(event);
+    reject(event.error);
+  });
+}
+
 websocket.onopen = async () => {
   console.log("WebSocket connection is open");
 
   const response1 = await getAgencyInfo();
   console.log("Response 1:", response1);
+
+  subCall();
   const response2 = await getCallQueue();
   console.log("Response 2:", response2);
 };
