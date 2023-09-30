@@ -13,6 +13,18 @@ const basicAuth =
   "Basic " + Buffer.from(username + ":" + password).toString("base64");
 const websocket = new WebSocket(uri, null, null, { Authorization: basicAuth });
 
+const { WebSocketServer } = require("ws");
+const sockserver = new WebSocketServer({ port: 443 });
+sockserver.on("connection", (ws) => {
+  console.log("New client connected!");
+  ws.send("connection established");
+  ws.on("close", () => console.log("Client has disconnected!"));
+  ws.on("message", (data) => {});
+  ws.onerror = function () {
+    console.log("websocket error");
+  };
+});
+
 var registerToken = "";
 
 // Function to send a request and wait for a response
