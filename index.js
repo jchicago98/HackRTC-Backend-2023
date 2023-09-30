@@ -1,36 +1,26 @@
 const WebSocket = require('websocket').w3cwebsocket;
 
-async function subscribeToAgencyEvents() {
-    // WebSocket URI
-    const uri = "wss://hackrtc.indigital.dev/text-control-api/v3";
+const uri = "wss://hackrtc.indigital.dev/text-control-api/v3";
+const username = "hackrtc-15";
+const password = "52f5foKH";
+const agencyId = "hackrtc-15";
+const agencySecret = "52f5foKH";
 
-    // Authentication credentials
-    const username = "hackrtc-15";
-    const password = "52f5foKH";
+const basicAuth = 'Basic ' + Buffer.from(username + ':' + password).toString('base64');
+const websocket = new WebSocket(uri, null, null, { Authorization: basicAuth });
 
-    // Agency information
-    const agencyId = "hackrtc-15";
-    const agencySecret = "52f5foKH";
+async function registerAgency() {
 
-    // Create an HTTP Basic Authentication header
-    const basicAuth = 'Basic ' + Buffer.from(username + ':' + password).toString('base64');
-
-    // Create a WebSocket connection
-    const websocket = new WebSocket(uri, null, null, { Authorization: basicAuth });
-
-    // Event handler for when the WebSocket connection is established
     websocket.onopen = () => {
         console.log('WebSocket connection is open');
 
-        // Subscription request
         const subscriptionRequest = {
-            action: "subscribe",
-            correlationId: "c455bd8e-c04e-4f53-89e6-41352da5fb2d", // Replace with your unique ID
+            action: "registerAgency",
+            correlationId: "c455bd8e-c04e-4f53-89e6-41352da5fb2d",
             agencyIdentifier: agencyId,
             secret: agencySecret
         };
 
-        // Send the subscription request as a JSON string
         websocket.send(JSON.stringify(subscriptionRequest));
     };
 
@@ -50,4 +40,4 @@ async function subscribeToAgencyEvents() {
     };
 }
 
-subscribeToAgencyEvents();
+registerAgency();
