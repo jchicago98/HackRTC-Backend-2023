@@ -12,59 +12,58 @@ const websocket = new WebSocket(uri, null, null, { Authorization: basicAuth });
 
 var registerToken = "";
 
-async function registerAgency() {
-  websocket.onopen = () => {
-    console.log("WebSocket connection is open");
+// Function to send a request and wait for a response
+async function sendRequestAndWait(request) {
+  return new Promise((resolve, reject) => {
+    // Listen for messages from the server
+    websocket.addEventListener("message", (event) => {
+      const response = JSON.parse(event.data);
+      resolve(response); // Resolve the promise when a response is received
+    });
 
-    // const sub = {
-    //   action: "subscribe",
-    //   correlationId: "c455bd8e-c04e-4f53-89e6-41352da5fb2d",
-    //   registerToken: "b12edf7f-23cc-44c9-87ae-18f8ad5fc3fa",
-    // };
-    const register = {
-      action: "requestAgencyInfo",
-      correlationId: "c455bd8e-c04e-4f53-89e6-41352da5fb2d",
-      agencyIdentifier: agencyId,
-      secret: agencySecret,
-    };
+    // Send the request
+    websocket.send(JSON.stringify(request));
 
-    // websocket.send(JSON.stringify(sub));
-    websocket.send(JSON.stringify(register));
-  };
-
-  // Event handler for receiving messages
-  websocket.onmessage = (event) => {
-    console.log(event.data);
-    console.log(JSON.parse(event.data));
-    if (JSON.parse(event.data).agency !== undefined) {
-      console.log(JSON.parse(event.data).agency.registerToken);
-      registerToken = JSON.parse(event.data).agency.registerToken
-
-    const subCalls = {
-        "action": "requestCallInfo",
-        "correlationId": "c455bd8e-c04e-4f53-89e6-41352da5fb2d",
-        registerToken:registerToken,
-        callId:"ude87vmclqg9bqp7rth2"
-      };
-      console.log(subCalls)
-      websocket.send(JSON.stringify(subCalls));
-    } else if (JSON.parse(event.data).callInfo !== undefined) {
-      console.log("call queue received")
-      // for (callq in JSON.parse(event.data).callQueue) {
-      //   console.log(callq)
-      // }
-    }
-  };
-
-  // Event handler for WebSocket errors
-  websocket.onerror = (error) => {
-    console.error(`WebSocket error: ${error}`);
-  };
-
-  // Event handler for WebSocket closure
-  websocket.onclose = () => {
-    console.log("WebSocket connection is closed");
-  };
+    // Handle errors
+    websocket.addEventListener("error", (event) => {
+      console.log(event);
+      reject(event.error);
+    });
+  });
 }
 
-registerAgency();
+async function getAgencyInfo() {
+  const request = {
+    action: "requestAgencyInfo",
+    correlationId: "c455bd8e-c04e-4f53-89e6-41352da5fb2d",
+    agencyIdentifier: agencyId,
+    secret: agencySecret,
+  };
+  const response = await sendRequestAndWait(request);
+  if (response.agency !== undefined) {
+    registerToken = response.agency.registerToken;
+  }
+  return response;
+}
+
+async function getCallQueue() {
+  const request = {
+    action: "requestCallQueue",
+    correlationId: "c455bd8e-c04e-4f53-89e6-41352da5fb2d",
+    registerToken: registerToken,
+  };
+  return await sendRequestAndWait(request);
+}
+
+websocket.onopen = async () => {
+  console.log("WebSocket connection is open");
+
+  const response1 = await getAgencyInfo();
+  console.log("Response 1:", response1);
+  const response2 = await getCallQueue();
+  console.log("Response 2:", response2);
+};
+
+websocket.onclose = () => {
+  console.log("WebSocket connection is closed");
+};
