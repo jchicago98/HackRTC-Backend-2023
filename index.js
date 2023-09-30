@@ -1,10 +1,13 @@
+require("dotenv").config();
+const express = require("express");
+const app = express();
 const WebSocket = require("websocket").w3cwebsocket;
 
 const uri = "wss://hackrtc.indigital.dev/text-control-api/v3";
-const username = "hackrtc-34";
-const password = "smH5Mnv1";
-const agencyId = "hackrtc-34";
-const agencySecret = "smH5Mnv1";
+const username =  process.env._USERNAME_;
+const password = process.env._PASSWORD_;
+const agencyId = process.env.AGENCY_ID;
+const agencySecret = process.env.AGENCY_SECRET;
 
 const basicAuth =
   "Basic " + Buffer.from(username + ":" + password).toString("base64");
@@ -91,4 +94,5 @@ websocket.onopen = async () => {
 
 websocket.onclose = () => {
   console.log("WebSocket connection is closed");
+  console.log(process.env.USERNAME);
 };
