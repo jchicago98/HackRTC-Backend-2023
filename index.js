@@ -8,7 +8,7 @@ hackrtcController.use(bodyParser.urlencoded({ extended: false }));
 hackrtcController.use(bodyParser.json());
 
 const uri = "wss://hackrtc.indigital.dev/text-control-api/v3";
-const username =  process.env._USERNAME_;
+const username = process.env._USERNAME_;
 const password = process.env._PASSWORD_;
 const agencyId = process.env.AGENCY_ID;
 const agencySecret = process.env.AGENCY_SECRET;
@@ -74,6 +74,17 @@ async function getCallQueue() {
   return await sendRequestAndWait(request);
 }
 
+async function acceptCall(callId) {
+  const request = {
+    action: "acceptCall",
+    correlationId: "c455bd8e-c04e-4f53-89e6-41352da5fb2d",
+    registerToken,
+    callId,
+    agentId: agencyId,
+  };
+  return await sendRequestAndWait(request);
+}
+
 async function subCall() {
   const request = {
     action: "subscribe",
@@ -87,7 +98,7 @@ async function subCall() {
   // Listen for messages from the server
   websocket.addEventListener("message", (event) => {
     const response = JSON.parse(event.data);
-    console.log(response)
+    console.log(response);
   });
 
   // Handle errors
@@ -113,19 +124,21 @@ websocket.onclose = () => {
   console.log(process.env.USERNAME);
 };
 
-
-
 const port = 3000;
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
 
-app.use('/', hackrtcController);
+app.use("/", hackrtcController);
 
 app.use(bodyParser.urlencoded({ extended: false }));
 
 app.use(bodyParser.json());
 
-hackrtcController.post('/accept-call', (req, res) => {
+hackrtcController.post("/accept-call", async (req, res) => {
   console.log(req.body);
+  await acceptCall(req.body.callId);
+
+  res.send("success");
+  return;
 });
