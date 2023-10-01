@@ -179,8 +179,12 @@ async function subCall() {
       if (isEnding === "Yes" || isEnding === "Yes." || isEnding === "yes") {
         await endCall(response.callId);
       }
-
-      sendCallQueueToClients();
+      const userResponse98 = {
+        user: "user",
+        from: response.message.from,
+        body: response.message.body,
+      };
+      sendCallQueueToClients(userResponse98);
     }
     // console.log(response);
   });
@@ -193,13 +197,13 @@ async function subCall() {
 }
 
 // Send call queue to all WebSocket clients
-async function sendCallQueueToClients() {
+async function sendCallQueueToClients(userResponse) {
   const callQueueResponse = await getCallQueue();
   callQueueClients.forEach((ws) => {
     ws.send(JSON.stringify(callQueueResponse));
+    ws.send(JSON.stringify(userResponse));
   });
 }
-
 
 websocket.onopen = async () => {
   console.log("WebSocket connection is open");
@@ -234,13 +238,11 @@ async function sendChatGPT(content) {
 }
 
 async function replyToUserChatGPT(simulatedUserMessage) {
-  const isEnding = await sendChatGPT(
-    simulatedUserMessage + ":" + "Is this conversation has ending context. Answer with yes or no"
-  );
+  const isEnding = await sendChatGPT(simulatedUserMessage +":" +"Is this conversation has ending context. Answer with yes or no");
   const aiResponse = await sendChatGPT(
     simulatedUserMessage + ":" + "Please reply as if you were a dispatcher"
   );
-  return [isEnding, aiResponse]
+  return [isEnding, aiResponse];
 }
 
 hackrtcController.post("/accept-call", async (req, res) => {
