@@ -69,6 +69,25 @@ async function sendRequestAndWait(request) {
   });
 }
 
+async function unregisterAgency(){
+  const unregisterAgencyRequest = {
+    action: "unregisterAgency",
+    correlationId: corrId,
+    registerToken: registerToken
+  }
+  return await sendRequestAndWait(unregisterAgencyRequest);
+}
+
+async function registerAgency(){
+  const registerAgencyRequest = {
+    action: "registerAgency",
+    correlationId: corrId,
+    agencyIdentifier: agencyId,
+    secret: agencySecret
+  };
+  return await sendRequestAndWait(registerAgencyRequest);
+}
+
 async function getAgencyInfo() {
   const request = {
     action: "requestAgencyInfo",
@@ -149,9 +168,10 @@ async function subCall() {
   });
 }
 
+
 websocket.onopen = async () => {
   console.log("WebSocket connection is open");
-
+  
   const agencyInfoResponse = await getAgencyInfo();
   //console.log("Agency Info Response: ", agencyInfoResponse);
 
@@ -185,7 +205,21 @@ async function replyToUserChatGPT(simulatedUserMessage) {
 
 hackrtcController.post("/accept-call", async (req, res) => {
   await acceptCall(req.body.callId);
-
   res.send("success");
+  return;
+});
+
+
+hackrtcController.post("/register-agency", async (req, res) => {
+  await registerAgency();
+  await getAgencyInfo();
+  await subCall();
+  res.send("Agency registered");
+  return;
+});
+
+hackrtcController.put("/unregister-agency", async (req, res) => {
+  await unregisterAgency();
+  res.send("Agency unregistered");
   return;
 });
