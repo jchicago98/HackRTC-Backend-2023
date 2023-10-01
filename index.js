@@ -69,21 +69,21 @@ async function sendRequestAndWait(request) {
   });
 }
 
-async function unregisterAgency(){
+async function unregisterAgency() {
   const unregisterAgencyRequest = {
     action: "unregisterAgency",
     correlationId: corrId,
-    registerToken: registerToken
-  }
+    registerToken: registerToken,
+  };
   return await sendRequestAndWait(unregisterAgencyRequest);
 }
 
-async function registerAgency(){
+async function registerAgency() {
   const registerAgencyRequest = {
     action: "registerAgency",
     correlationId: corrId,
     agencyIdentifier: agencyId,
-    secret: agencySecret
+    secret: agencySecret,
   };
   return await sendRequestAndWait(registerAgencyRequest);
 }
@@ -122,13 +122,23 @@ async function acceptCall(callId) {
   return await sendRequestAndWait(request);
 }
 
-async function sendMessage(callId , chatGPTMessage){
+async function endCall(callId) {
+  const request = {
+    action: "endCall",
+    correlationId: corrId,
+    registerToken,
+    callId,
+  };
+  return await sendRequestAndWait(request);
+}
+
+async function sendMessage(callId, chatGPTMessage) {
   const sendMessageRequest = {
     action: "sendMessage",
     correlationId: corrId,
     registerToken: registerToken,
     callId: callId,
-    body: chatGPTMessage
+    body: chatGPTMessage,
   };
   return await sendRequestAndWait(sendMessageRequest);
 }
@@ -152,13 +162,19 @@ async function subCall() {
     }
     if (response.event == "messageReceived") {
       //console.log(response);
-      const simulatedUserMessage = response.message.body;
-      const chatGPTResponse = await replyToUserChatGPT(simulatedUserMessage);
-      console.log("User Response: ", response.message.body);
-      console.log("AI Response: ", chatGPTResponse);
-      sendMessage(response.callId, chatGPTResponse);
+      const userResponse = response.message.body;
+      console.log("User Response: ", userResponse);
+      const [isEnding, aiResponse] = await replyToUserChatGPT(userResponse);
+      console.log("AI Response: ", aiResponse);
+      console.log("Is ending: ", isEnding);
+
+      sendMessage(response.callId, aiResponse);
+
+      if (isEnding === "Yes" || isEnding === "Yes." || isEnding === "yes") {
+        await endCall(response.callId);
+      }
     }
-    //console.log(response);
+    // console.log(response);
   });
 
   // Handle errors
@@ -168,10 +184,9 @@ async function subCall() {
   });
 }
 
-
 websocket.onopen = async () => {
   console.log("WebSocket connection is open");
-  
+
   const agencyInfoResponse = await getAgencyInfo();
   //console.log("Agency Info Response: ", agencyInfoResponse);
 
@@ -184,31 +199,38 @@ websocket.onclose = () => {
   console.log("WebSocket connection is closed");
 };
 
-async function replyToUserChatGPT(simulatedUserMessage) {
-  const content = simulatedUserMessage + ":" + "Please reply as if you were a dispatcher";
-  const messages = [
-    { role: "user", content: content },
-  ];
-  try {
-    const chatGPTResponse = await openai.post("/chat/completions", {
-      model: "gpt-3.5-turbo",
-      messages,
-    });
-    const replyMessage = chatGPTResponse.data.choices[0].message.content;
-    return Promise.resolve(replyMessage);
-    //console.log("ChatGPT Reply: "+replyMessage);
-  } catch (error) {
-    console.error('Error sending message to OpenAI:', error.message);
-  }
+async function sendChatGPT(content) {
+  const messages = [{ role: "user", content: content }];
+  return new Promise(async (resolve, reject) => {
+    try {
+      const chatGPTResponse = await openai.post("/chat/completions", {
+        model: "gpt-3.5-turbo",
+        messages,
+      });
+      const replyMessage = chatGPTResponse.data.choices[0].message.content;
+      resolve(replyMessage);
+    } catch (error) {
+      console.error("Error sending message to OpenAI:", error.message);
+      reject(error);
+    }
+  });
 }
 
+async function replyToUserChatGPT(simulatedUserMessage) {
+  const isEnding = await sendChatGPT(
+    simulatedUserMessage + ":" + "Is this ending context. Answer with yes or no"
+  );
+  const aiResponse = await sendChatGPT(
+    simulatedUserMessage + ":" + "Please reply as if you were a dispatcher"
+  );
+  return [isEnding, aiResponse]
+}
 
 hackrtcController.post("/accept-call", async (req, res) => {
   await acceptCall(req.body.callId);
   res.send("success");
   return;
 });
-
 
 hackrtcController.post("/register-agency", async (req, res) => {
   await registerAgency();
