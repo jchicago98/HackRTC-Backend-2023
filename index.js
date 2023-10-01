@@ -21,6 +21,7 @@ const password = process.env._PASSWORD_;
 const agencyId = process.env.AGENCY_ID;
 const agencySecret = process.env.AGENCY_SECRET;
 const openAIApiKey = process.env.API_KEY_OPEN_AI;
+const corrId = "c455bd8e-c04e-4f53-89e6-41352da5fb2d";
 
 const openai = axios.create({
   baseURL: "https://api.openai.com/v1",
@@ -71,7 +72,7 @@ async function sendRequestAndWait(request) {
 async function getAgencyInfo() {
   const request = {
     action: "requestAgencyInfo",
-    correlationId: "c455bd8e-c04e-4f53-89e6-41352da5fb2d",
+    correlationId: corrId,
     agencyIdentifier: agencyId,
     secret: agencySecret,
   };
@@ -85,7 +86,7 @@ async function getAgencyInfo() {
 async function getCallQueue() {
   const request = {
     action: "requestCallQueue",
-    correlationId: "c455bd8e-c04e-4f53-89e6-41352da5fb2d",
+    correlationId: corrId,
     registerToken: registerToken,
   };
   return await sendRequestAndWait(request);
@@ -94,7 +95,7 @@ async function getCallQueue() {
 async function acceptCall(callId) {
   const request = {
     action: "acceptCall",
-    correlationId: "c455bd8e-c04e-4f53-89e6-41352da5fb2d",
+    correlationId: corrId,
     registerToken,
     callId,
     agentId: agencyId,
@@ -102,10 +103,21 @@ async function acceptCall(callId) {
   return await sendRequestAndWait(request);
 }
 
+async function sendMessage(callId , chatGPTMessage){
+  const sendMessageRequest = {
+    action: "sendMessage",
+    correlationId: corrId,
+    registerToken: registerToken,
+    callId: callId,
+    body: chatGPTMessage
+  };
+  return await sendRequestAndWait(sendMessageRequest);
+}
+
 async function subCall() {
   const request = {
     action: "subscribe",
-    correlationId: "c455bd8e-c04e-4f53-89e6-41352da5fb2d",
+    correlationId: corrId,
     registerToken: registerToken,
   };
 
@@ -113,16 +125,19 @@ async function subCall() {
   websocket.send(JSON.stringify(request));
 
   // Listen for messages from the server
-  websocket.addEventListener("message", (event) => {
+  websocket.addEventListener("message", async (event) => {
     const response = JSON.parse(event.data);
     if (response.event == "callPresented") {
       const callId = response.call.callId;
       acceptCall(callId);
     }
     if (response.event == "messageReceived") {
+      //console.log(response);
       const simulatedUserMessage = response.message.body;
-      replyToUserChatGPT(simulatedUserMessage);
+      const chatGPTResponse = await replyToUserChatGPT(simulatedUserMessage);
       console.log("User Response: ", response.message.body);
+      console.log("AI Response: ", chatGPTResponse);
+      sendMessage(response.callId, chatGPTResponse);
     }
     //console.log(response);
   });
@@ -160,7 +175,8 @@ async function replyToUserChatGPT(simulatedUserMessage) {
       messages,
     });
     const replyMessage = chatGPTResponse.data.choices[0].message.content;
-    console.log("ChatGPT Reply: "+replyMessage);
+    return Promise.resolve(replyMessage);
+    //console.log("ChatGPT Reply: "+replyMessage);
   } catch (error) {
     console.error('Error sending message to OpenAI:', error.message);
   }
