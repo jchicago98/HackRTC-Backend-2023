@@ -2,6 +2,10 @@ require("dotenv").config();
 const express = require("express");
 const app = express();
 const WebSocket = require("websocket").w3cwebsocket;
+let hackrtcController = express.Router();
+var bodyParser = require("body-parser");
+hackrtcController.use(bodyParser.urlencoded({ extended: false }));
+hackrtcController.use(bodyParser.json());
 
 const uri = "wss://hackrtc.indigital.dev/text-control-api/v3";
 const username =  process.env._USERNAME_;
@@ -108,3 +112,20 @@ websocket.onclose = () => {
   console.log("WebSocket connection is closed");
   console.log(process.env.USERNAME);
 };
+
+
+
+const port = 3000;
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
+
+app.use('/', hackrtcController);
+
+app.use(bodyParser.urlencoded({ extended: false }));
+
+app.use(bodyParser.json());
+
+hackrtcController.post('/accept-call', (req, res) => {
+  console.log(req.body);
+});
