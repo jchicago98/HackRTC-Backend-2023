@@ -168,12 +168,6 @@ async function subCall() {
     }
     if (response.event == "messageReceived") {
       //console.log(response);
-      const simulatedUserMessage = response.message.body;
-      const chatGPTResponse = await replyToUserChatGPT(simulatedUserMessage);
-      console.log("User Response: ", response.message.body);
-      console.log("AI Response: ", chatGPTResponse);
-      sendMessage(response.callId, chatGPTResponse);
-      sendCallQueueToClients();
       const userResponse = response.message.body;
       console.log("User Response: ", userResponse);
       const [isEnding, aiResponse] = await replyToUserChatGPT(userResponse);
@@ -185,6 +179,8 @@ async function subCall() {
       if (isEnding === "Yes" || isEnding === "Yes." || isEnding === "yes") {
         await endCall(response.callId);
       }
+
+      sendCallQueueToClients();
     }
     // console.log(response);
   });
@@ -239,7 +235,7 @@ async function sendChatGPT(content) {
 
 async function replyToUserChatGPT(simulatedUserMessage) {
   const isEnding = await sendChatGPT(
-    simulatedUserMessage + ":" + "Is this ending context. Answer with yes or no"
+    simulatedUserMessage + ":" + "Is this conversation has ending context. Answer with yes or no"
   );
   const aiResponse = await sendChatGPT(
     simulatedUserMessage + ":" + "Please reply as if you were a dispatcher"
