@@ -1,17 +1,34 @@
 require("dotenv").config();
 const express = require("express");
 const app = express();
+const axios = require("axios");
 const WebSocket = require("websocket").w3cwebsocket;
 let hackrtcController = express.Router();
 var bodyParser = require("body-parser");
 hackrtcController.use(bodyParser.urlencoded({ extended: false }));
 hackrtcController.use(bodyParser.json());
+const port = 3000;
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
+app.use("/", hackrtcController);
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
 const uri = "wss://hackrtc.indigital.dev/text-control-api/v3";
 const username = process.env._USERNAME_;
 const password = process.env._PASSWORD_;
 const agencyId = process.env.AGENCY_ID;
 const agencySecret = process.env.AGENCY_SECRET;
+const openAIApiKey = process.env.API_KEY_OPEN_AI;
+
+const openai = axios.create({
+  baseURL: "https://api.openai.com/v1",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${openAIApiKey}`,
+  },
+});
 
 const basicAuth =
   "Basic " + Buffer.from(username + ":" + password).toString("base64");
@@ -98,7 +115,16 @@ async function subCall() {
   // Listen for messages from the server
   websocket.addEventListener("message", (event) => {
     const response = JSON.parse(event.data);
-    console.log(response);
+    if (response.event == "callPresented") {
+      const callId = response.call.callId;
+      acceptCall(callId);
+    }
+    if (response.event == "messageReceived") {
+      const simulatedUserMessage = response.message.body;
+      replyToUserChatGPT(simulatedUserMessage);
+      console.log("User Response: ", response.message.body);
+    }
+    //console.log(response);
   });
 
   // Handle errors
@@ -111,32 +137,37 @@ async function subCall() {
 websocket.onopen = async () => {
   console.log("WebSocket connection is open");
 
-  const response1 = await getAgencyInfo();
-  console.log("Response 1:", response1);
+  const agencyInfoResponse = await getAgencyInfo();
+  //console.log("Agency Info Response: ", agencyInfoResponse);
 
   subCall();
-  const response2 = await getCallQueue();
-  console.log("Response 2:", response2);
+  const callQueueResponse = await getCallQueue();
+  //console.log("Call Queue Response: ", callQueueResponse);
 };
 
 websocket.onclose = () => {
   console.log("WebSocket connection is closed");
-  console.log(process.env.USERNAME);
 };
 
-const port = 3000;
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+async function replyToUserChatGPT(simulatedUserMessage) {
+  const content = simulatedUserMessage + ":" + "Please reply as if you were a dispatcher";
+  const messages = [
+    { role: "user", content: content },
+  ];
+  try {
+    const chatGPTResponse = await openai.post("/chat/completions", {
+      model: "gpt-3.5-turbo",
+      messages,
+    });
+    const replyMessage = chatGPTResponse.data.choices[0].message.content;
+    console.log("ChatGPT Reply: "+replyMessage);
+  } catch (error) {
+    console.error('Error sending message to OpenAI:', error.message);
+  }
+}
 
-app.use("/", hackrtcController);
-
-app.use(bodyParser.urlencoded({ extended: false }));
-
-app.use(bodyParser.json());
 
 hackrtcController.post("/accept-call", async (req, res) => {
-  console.log(req.body);
   await acceptCall(req.body.callId);
 
   res.send("success");
