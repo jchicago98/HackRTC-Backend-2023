@@ -23,6 +23,8 @@ const agencySecret = process.env.AGENCY_SECRET;
 const openAIApiKey = process.env.API_KEY_OPEN_AI;
 const corrId = "c455bd8e-c04e-4f53-89e6-41352da5fb2d";
 
+const callQueueClients = new Set();
+
 const openai = axios.create({
   baseURL: "https://api.openai.com/v1",
   headers: {
@@ -40,7 +42,11 @@ const sockserver = new WebSocketServer({ port: 443 });
 sockserver.on("connection", (ws) => {
   console.log("New client connected!");
   ws.send("connection established");
-  ws.on("close", () => console.log("Client has disconnected!"));
+  callQueueClients.add(ws);
+  ws.on("close", () => {
+    console.log("Client has disconnected!");
+    callQueueClients.delete(ws);
+  });
   ws.on("message", (data) => {});
   ws.onerror = function () {
     console.log("websocket error");
@@ -157,6 +163,7 @@ async function subCall() {
       console.log("User Response: ", response.message.body);
       console.log("AI Response: ", chatGPTResponse);
       sendMessage(response.callId, chatGPTResponse);
+      sendCallQueueToClients();
     }
     //console.log(response);
   });
@@ -165,6 +172,14 @@ async function subCall() {
   websocket.addEventListener("error", (event) => {
     console.log(event);
     reject(event.error);
+  });
+}
+
+// Send call queue to all WebSocket clients
+async function sendCallQueueToClients() {
+  const callQueueResponse = await getCallQueue();
+  callQueueClients.forEach((ws) => {
+    ws.send(JSON.stringify(callQueueResponse));
   });
 }
 
