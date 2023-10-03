@@ -24,6 +24,7 @@ const openAIApiKey = process.env.API_KEY_OPEN_AI;
 const corrId = "c455bd8e-c04e-4f53-89e6-41352da5fb2d";
 
 const callQueueClients = new Set();
+const mapOfCallIds = new Map();
 
 const openai = axios.create({
   baseURL: "https://api.openai.com/v1",
@@ -46,7 +47,16 @@ sockserver.on("connection", (ws) => {
     console.log("Client has disconnected!");
     callQueueClients.delete(ws);
   });
-  ws.on("message", (data) => {});
+  ws.on("message", (data) => {
+    const dispatcherMessage = JSON.parse(data);
+    const callId = dispatcherMessage.callId;
+    const bodyMessage = dispatcherMessage.body;
+    mapOfCallIds.set(
+      callId,
+      dispatcherMessage.canChatGPTRespond
+    );
+    sendMessage(callId, bodyMessage);
+  });
   ws.onerror = function () {
     console.log("websocket error");
   };
@@ -169,21 +179,22 @@ async function subCall() {
       //console.log(response);
       const userResponse = response.message.body;
       //console.log("User Response: ", userResponse);
-      const [isEnding, aiResponse] = await replyToUserChatGPT(userResponse);
+      const callId = response.callId;
+      if (!mapOfCallIds.has(callId)) {
+        const [isEnding, aiResponse] = await replyToUserChatGPT(userResponse);
+        sendMessage(response.callId, aiResponse);
+        if (isEnding === "Yes" || isEnding === "Yes." || isEnding === "yes") {
+          await endCall(response.callId);
+        }
+        const userResponse98 = {
+          user: "user",
+          from: response.message.from,
+          body: response.message.body,
+        };
+        sendCallQueueToClients(userResponse98);
+      }
       //console.log("AI Response: ", aiResponse);
       //console.log("Is ending: ", isEnding);
-
-      sendMessage(response.callId, aiResponse);
-
-      if (isEnding === "Yes" || isEnding === "Yes." || isEnding === "yes") {
-        await endCall(response.callId);
-      }
-      const userResponse98 = {
-        user: "user",
-        from: response.message.from,
-        body: response.message.body,
-      };
-      sendCallQueueToClients(userResponse98);
     }
     // console.log(response);
   });
