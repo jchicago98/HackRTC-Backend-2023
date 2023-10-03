@@ -41,7 +41,6 @@ const { WebSocketServer } = require("ws");
 const sockserver = new WebSocketServer({ port: 443 });
 sockserver.on("connection", (ws) => {
   console.log("New client connected!");
-  ws.send("connection established");
   callQueueClients.add(ws);
   ws.on("close", () => {
     console.log("Client has disconnected!");
@@ -169,10 +168,10 @@ async function subCall() {
     if (response.event == "messageReceived") {
       //console.log(response);
       const userResponse = response.message.body;
-      console.log("User Response: ", userResponse);
+      //console.log("User Response: ", userResponse);
       const [isEnding, aiResponse] = await replyToUserChatGPT(userResponse);
-      console.log("AI Response: ", aiResponse);
-      console.log("Is ending: ", isEnding);
+      //console.log("AI Response: ", aiResponse);
+      //console.log("Is ending: ", isEnding);
 
       sendMessage(response.callId, aiResponse);
 
@@ -200,8 +199,8 @@ async function subCall() {
 async function sendCallQueueToClients(userResponse) {
   const callQueueResponse = await getCallQueue();
   callQueueClients.forEach((ws) => {
-    ws.send(JSON.stringify(callQueueResponse));
     ws.send(JSON.stringify(userResponse));
+    ws.send(JSON.stringify(callQueueResponse));
   });
 }
 
@@ -238,7 +237,11 @@ async function sendChatGPT(content) {
 }
 
 async function replyToUserChatGPT(simulatedUserMessage) {
-  const isEnding = await sendChatGPT(simulatedUserMessage +":" +"Is this conversation has ending context. Answer with yes or no");
+  const isEnding = await sendChatGPT(
+    simulatedUserMessage +
+      ":" +
+      "Is this conversation has ending context. Answer with yes or no"
+  );
   const aiResponse = await sendChatGPT(
     simulatedUserMessage + ":" + "Please reply as if you were a dispatcher"
   );
